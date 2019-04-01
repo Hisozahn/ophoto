@@ -1,70 +1,47 @@
 #!/usr/bin/env python3
 
 import asyncio
-import aioamqp
-import sys
+import bcrypt
+import json
+
+from .auth_db import AuthDatabase
+from ophoto.lib.rpc_server import RPCServer
+
+import tornado.escape
+import tornado.options
+from tornado.options import define, options
+
+define("port", default=8889, help="run on the given port", type=int)
+define("db_host", default="127.0.0.1", help="user database host")
+define("db_port", default=27017, help="user database port")
+define("db_database", default="auth", help="user database name")
+
+class AuthServer(RPCServer):
+    def __init__(self, routing_key, db):
+        super().__init__(routing_key, db)
+        self.scheme = [{'op': 'auth.create', 'handler': self.auth_create, 'args': ['_id', 'user', 'password']}]
 
 
-def fib(n):
-    if n == 0:
-        return 0
-    elif n == 1:
-        return 1
-    else:
-        return fib(n-1) + fib(n-2)
+    async def auth_create(self, _id, user, password):
+        loop = asyncio.get_event_loop()
+        # NOTE: Original logic used some kind of to_unicode() functions for password
+        hashed_password = await loop.run_in_executor(None, bcrypt.hashpw,
+                                                     tornado.escape.utf8(password), bcrypt.gensalt())
+        try:
+            user_id = await self.db.create_user(_id, user, tornado.escape.to_unicode(hashed_password))
+        except Exception as err:
+            return({"code": 999, "message": err.args[0]})
+        return ({"code": 1000, "message": "User is created", "user_id": str(user_id)})
 
 
-class FibonacciRpcServer(object):
-    def __init__(self):
-        self.transport = None
-        self.protocol = None
-        self.channel = None
 
-    async def connect(self):
-        """ an `__init__` method can't be a coroutine"""
-        self.transport, self.protocol = await aioamqp.connect()
-
-        self.channel = await self.protocol.channel()
-        exchange_name = 'request_routing'
-
-        await self.channel.exchange(exchange_name, 'direct')
-
-        result = await self.channel.queue_declare(exclusive=True)
-        queue_name = result['queue']
-
-        await self.channel.queue_bind(
-            exchange_name=exchange_name,
-            queue_name=queue_name,
-            routing_key= sys.argv[1]
-        )
-
-        await self.channel.basic_consume(self.on_request, queue_name=queue_name)
-        print(" [x] Awaiting RPC requests")
-
-
-    async def on_request(self, channel, body, envelope, properties):
-        n = int(body)
-
-        print(" [.] fib(%s)" % n)
-        response = fib(n)
-
-        await channel.basic_publish(
-            payload=str(response),
-            exchange_name='',
-            routing_key=properties.reply_to,
-            properties={
-                'correlation_id': properties.correlation_id,
-            },
-        )
-
-        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
-
-
-async def rpc_server():
-    server = FibonacciRpcServer()
+async def auth_rpc_server():
+    db = AuthDatabase(options.db_host, options.db_port, options.db_database)
+    server = AuthServer('auth', db)
     await server.connect()
 
 
+tornado.options.parse_command_line()
 event_loop = asyncio.get_event_loop()
-event_loop.run_until_complete(rpc_server())
+event_loop.run_until_complete(auth_rpc_server())
 event_loop.run_forever()
