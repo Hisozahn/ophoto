@@ -42,6 +42,9 @@ class Application(tornado.web.Application):
         super(Application, self).__init__(handlers, **settings)
 
 class BaseHandler(tornado.web.RequestHandler):
+    def prepare(self):
+        self.args = json.loads(self.request.body)
+
     def get_current_user(self):
         return self.get_secure_cookie(SECURE_COOKIE_NAME)
 
@@ -53,8 +56,8 @@ class HomeHandler(BaseHandler):
 class AuthCreateHandler(BaseHandler):
     async def post(self):
         _id = str(uuid.uuid4())
-        user = self.get_argument("user")
-        password = self.get_argument("password")
+        user = self.args["user"]
+        password = self.args["password"]
         auth_responce = await self.application.rpc_client.call('auth', {'op': 'auth.create',
                                                                         '_id': _id,
                                                                         'user': user,
@@ -76,24 +79,16 @@ class AuthCreateHandler(BaseHandler):
 
 class AuthLoginHandler(BaseHandler):
     async def post(self):
-        '''
-        user = await self.application.db.get_user(self.get_argument("user"))
-        if user is None:
-            self.write( {"code": 999, "message": "User is not found" })
+        user = self.args["user"]
+        password = self.args["password"]
+        responce = await self.application.rpc_client.call('auth', {'op': 'auth.login',
+                                                                   'user': user,
+                                                                   'password': password})
+        if responce['code'] != 1000:
+            self.write(responce)
             return
-        hashed_password = await tornado.ioloop.IOLoop.current().run_in_executor(
-            None,
-            bcrypt.hashpw,
-            tornado.escape.utf8(self.get_argument("password")),
-            tornado.escape.utf8(user.hashed_password),
-        )
-        hashed_password = tornado.escape.to_unicode(hashed_password)
-        if hashed_password == user.hashed_password:
-            self.set_secure_cookie(SECURE_COOKIE_NAME, str(user._id))
-            self.write( {"code": 1000, "message": "Authenticated"})
-        else:
-            self.write( {"code": 999, "message": "Invalid user/password pair"})
-        '''
+
+        self.write( {"code": 1000, "message": "Authenticated"})
 
 
 class AuthLogoutHandler(BaseHandler):

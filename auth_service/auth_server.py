@@ -19,7 +19,10 @@ define("db_database", default="auth", help="user database name")
 class AuthServer(RPCServer):
     def __init__(self, routing_key, db):
         super().__init__(routing_key, db)
-        self.scheme = [{'op': 'auth.create', 'handler': self.auth_create, 'args': ['_id', 'user', 'password']}]
+        self.scheme = [
+            {'op': 'auth.create', 'handler': self.auth_create, 'args': ['_id', 'user', 'password']},
+            {'op': 'auth.login', 'handler': self.auth_login, 'args': ['user', 'password']}
+        ]
 
 
     async def auth_create(self, _id, user, password):
@@ -32,6 +35,22 @@ class AuthServer(RPCServer):
         except Exception as err:
             return({"code": 999, "message": err.args[0]})
         return ({"code": 1000, "message": "User is created", "user_id": str(user_id)})
+
+    async def auth_login(self, user, password):
+        user_obj = await self.db.get_user(user)
+        if user_obj is None:
+            return ({"code": 999, "message": "Invalid user/password pair"})
+        loop = asyncio.get_event_loop()
+        hashed_password = await loop.run_in_executor(
+            None,
+            bcrypt.hashpw,
+            tornado.escape.utf8(password),
+            tornado.escape.utf8(user_obj.hashed_password),
+        )
+        hashed_password = tornado.escape.to_unicode(hashed_password)
+        if hashed_password == user_obj.hashed_password:
+            return ({"code": 1000, "message": "Authenticated"})
+        return ({"code": 999, "message": "Invalid user/password pair"})
 
 
 
