@@ -9,6 +9,7 @@ from ophoto.lib.rpc_server import RPCServer
 
 import tornado.options
 from tornado.options import define, options
+from bson import ObjectId
 
 define("port", default=8891, help="run on the given port", type=int)
 define("db_host", default="127.0.0.1", help="post database host")
@@ -21,6 +22,7 @@ class PostServer(RPCServer):
         self.scheme = [
             {'op': 'post.create', 'handler': self.post_create, 'args': ['user', 'image_id', 'description']},
             {'op': 'post.find', 'handler': self.post_find, 'args': ['users']},
+            {'op': 'post.get', 'handler': self.post_get, 'args': ['post_id']},
         ]
 
 
@@ -38,6 +40,12 @@ class PostServer(RPCServer):
             post_ids.append(str(post["_id"]))
         print(post_ids)
         return({"code": 1000, "message": "Query succeeded", "posts": post_ids})
+
+    async def post_get(self, post_id):
+        post = await self.db.get_post(ObjectId(post_id))
+        if post is None:
+            return({"code": 999, "message": "No such post"})
+        return({"code": 1000, "message": "Got post", "description": post.description, "image_id": post.image_id})
 
 
 async def post_rpc_server():

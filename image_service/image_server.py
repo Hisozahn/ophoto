@@ -9,6 +9,7 @@ from ophoto.lib.rpc_server import RPCServer
 
 import tornado.options
 from tornado.options import define, options
+from bson import ObjectId
 
 define("port", default=8892, help="run on the given port", type=int)
 define("db_host", default="127.0.0.1", help="image database host")
@@ -18,7 +19,17 @@ define("db_database", default="images", help="image database name")
 class ImageServer(RPCServer):
     def __init__(self, routing_key, db):
         super().__init__(routing_key, db)
-        self.scheme = [{'op': 'image.create', 'handler': self.image_create, 'args': ['image']}]
+        self.scheme = [
+            {'op': 'image.create', 'handler': self.image_create, 'args': ['image']},
+            {'op': 'image.get', 'handler': self.image_get, 'args': ['image_id']},
+        ]
+
+    async def image_get(self, image_id):
+        image = await self.db.get_image(ObjectId(image_id))
+        if image is None:
+            return({"code": 999, "message": "No such image"})
+        return({"code": 1000, "message": "Got image", "image": image.data})
+
 
 
     async def image_create(self, image):

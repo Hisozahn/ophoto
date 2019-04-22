@@ -34,6 +34,7 @@ class Application(tornado.web.Application):
             (r"/auth/logout", AuthLogoutHandler),
             (r"/post", PostCreateHandler),
             (r"/get_posts", GetPostsHandler),
+            (r"/get_post", GetPostHandler),
         ]
         settings = dict(
             xsrf_cookies=False,
@@ -121,6 +122,22 @@ class GetPostsHandler(BaseHandler):
             return
         response = await self.application.rpc_client.call('post', {'op': 'post.find', 'users': response['users']})
         self.write(response)
+
+class GetPostHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        post_response = await self.application.rpc_client.call('post', {'op': 'post.get', 'post_id': self.args["post_id"]})
+        if post_response['code'] != 1000:
+            self.write(post_response)
+            return
+        image_response = await self.application.rpc_client.call('image', {'op': 'image.get', 'image_id': post_response['image_id']})
+        if image_response['code'] != 1000:
+            self.write(image_response)
+            return
+        self.write( {"code": 1000, "message": "Got post", "description": post_response["description"], "image": image_response["image"]})
 
 async def main():
     tornado.options.parse_command_line()
