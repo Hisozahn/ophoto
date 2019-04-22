@@ -18,7 +18,10 @@ define("db_database", default="users", help="user database name")
 class UserServer(RPCServer):
     def __init__(self, routing_key, db):
         super().__init__(routing_key, db)
-        self.scheme = [{'op': 'user.create', 'handler': self.user_create, 'args': ['_id', 'user']}]
+        self.scheme = [
+            {'op': 'user.create', 'handler': self.user_create, 'args': ['_id', 'user']},
+            {'op': 'user.find', 'handler': self.user_find, 'args': ['user', 'search_type']},
+                      ]
 
 
     async def user_create(self, _id, user):
@@ -27,6 +30,14 @@ class UserServer(RPCServer):
         except Exception as err:
             return({"code": 999, "message": err.args[0]})
         return ({"code": 1000, "message": "User is created", "user_id": user_id})
+
+    async def user_find(self, user, search_type):
+        users = await self.db.find_related(user, search_type)
+        user_names = []
+        for user in users:
+            user_names.append(user["name"])
+        print(user_names)
+        return({"code": 1000, "message": "Query succeeded", "users": user_names})
 
 
 

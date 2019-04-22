@@ -5,6 +5,7 @@ import bcrypt
 import json
 
 from .auth_db import AuthDatabase
+from .token_manager import TokenManager
 from ophoto.lib.rpc_server import RPCServer
 
 import tornado.escape
@@ -19,9 +20,12 @@ define("db_database", default="auth", help="user database name")
 class AuthServer(RPCServer):
     def __init__(self, routing_key, db):
         super().__init__(routing_key, db)
+        self.tok_man = TokenManager()
         self.scheme = [
             {'op': 'auth.create', 'handler': self.auth_create, 'args': ['_id', 'user', 'password']},
-            {'op': 'auth.login', 'handler': self.auth_login, 'args': ['user', 'password']}
+            {'op': 'auth.login', 'handler': self.auth_login, 'args': ['user', 'password']},
+            {'op': 'auth.logout', 'handler': self.auth_logout, 'args': ['token']},
+            {'op': 'auth.check', 'handler': self.auth_check, 'args': ['token']},
         ]
 
 
@@ -49,10 +53,20 @@ class AuthServer(RPCServer):
         )
         hashed_password = tornado.escape.to_unicode(hashed_password)
         if hashed_password == user_obj.hashed_password:
-            return ({"code": 1000, "message": "Authenticated"})
+            token = self.tok_man.generate(user)
+            return ({"code": 1000, "token": token, "message": "Authenticated"})
         return ({"code": 999, "message": "Invalid user/password pair"})
 
+    async def auth_logout(self, token):
+        if (self.tok_man.clear(token)):
+            return ({"code": 1000, "message": "Token cleared"})
+        return ({"code": 999, "message": "Invalid token"})
 
+    async def auth_check(self, token):
+        user = self.tok_man.check(token)
+        if (user is None):
+            return ({"code": 999, "message": "Invalid token"})
+        return ({"code": 1000, "user": user, "message": "Token accepted"})
 
 async def auth_rpc_server():
     db = AuthDatabase(options.db_host, options.db_port, options.db_database)

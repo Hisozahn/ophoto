@@ -32,7 +32,8 @@ class Application(tornado.web.Application):
             (r"/auth/create", AuthCreateHandler),
             (r"/auth/login", AuthLoginHandler),
             (r"/auth/logout", AuthLogoutHandler),
-            (r"/secret", SecretHandler),
+            (r"/post", PostCreateHandler),
+            (r"/get_posts", GetPostsHandler),
         ]
         settings = dict(
             xsrf_cookies=False,
@@ -58,22 +59,21 @@ class AuthCreateHandler(BaseHandler):
         _id = str(uuid.uuid4())
         user = self.args["user"]
         password = self.args["password"]
-        auth_responce = await self.application.rpc_client.call('auth', {'op': 'auth.create',
+        auth_response = await self.application.rpc_client.call('auth', {'op': 'auth.create',
                                                                         '_id': _id,
                                                                         'user': user,
                                                                         'password': password})
-        user_responce = await self.application.rpc_client.call('user', {'op': 'user.create',
+        user_response = await self.application.rpc_client.call('user', {'op': 'user.create',
                                                                         '_id': _id,
                                                                         'user': user})
-        if auth_responce['code'] != 1000:
-            self.write(auth_responce)
+        if auth_response['code'] != 1000:
+            self.write(auth_response)
             return
-        if user_responce['code'] != 1000:
-            self.write(user_responce)
+        if user_response['code'] != 1000:
+            self.write(user_response)
             return
             #TODO
 
-        self.set_secure_cookie(SECURE_COOKIE_NAME, str(auth_responce['user_id']))
         self.write( {"code": 1000, "message": "Authenticated"})
 
 
@@ -81,28 +81,46 @@ class AuthLoginHandler(BaseHandler):
     async def post(self):
         user = self.args["user"]
         password = self.args["password"]
-        responce = await self.application.rpc_client.call('auth', {'op': 'auth.login',
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.login',
                                                                    'user': user,
                                                                    'password': password})
-        if responce['code'] != 1000:
-            self.write(responce)
-            return
-
-        self.write( {"code": 1000, "message": "Authenticated"})
+        self.write(response)
 
 
 class AuthLogoutHandler(BaseHandler):
-    def get(self):
-        self.clear_cookie(SECURE_COOKIE_NAME)
-        self.write( {"code": 1000, "message": "OK"})
+    async def post(self):
+        token = self.args["token"]
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.logout', 'token': token})
+        self.write(response)
 
-class SecretHandler(BaseHandler):
-    async def get(self):
-        if not self.current_user:
-            self.write({"code": 999, "message": "No secret for you"})
+class PostCreateHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
             return
-        self.write({"code": 1000, "message": "Secret is secret"})
+        user = response['user']
+        response = await self.application.rpc_client.call('image', {'op': 'image.create', 'image': self.args["image"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        response = await self.application.rpc_client.call('post', {'op': 'post.create', 'user': user, 'image_id': response['image_id'], 'description': self.args["description"]})
+        self.write(response)
 
+class GetPostsHandler(BaseHandler):
+    async def post(self):
+        search_type = self.args["search_type"]
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        user = response['user']
+        response = await self.application.rpc_client.call('user', {'op': 'user.find', 'user': user, 'search_type': search_type})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        response = await self.application.rpc_client.call('post', {'op': 'post.find', 'users': response['users']})
+        self.write(response)
 
 async def main():
     tornado.options.parse_command_line()

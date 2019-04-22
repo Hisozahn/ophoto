@@ -33,6 +33,11 @@ class UserDatabase(Database):
         result = await self.db.users.insert_one({'_id': _id, 'name': name, 'bio': '', 'follows': []})
         return result.inserted_id
 
+    async def find_related(self, user, search_type):
+        cursor = self.db.users.find()
+        people = await cursor.to_list(None)
+        return people
+
     async def find_people(self, user, query, search_type):
         if search_type == Search_type.FOLLOWING:
             match['_id'] = {'$in': user.follows}
