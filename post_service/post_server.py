@@ -45,7 +45,7 @@ class PostServer(RPCServer):
         post = await self.db.get_post(ObjectId(post_id))
         if post is None:
             return({"code": 999, "message": "No such post"})
-        return({"code": 1000, "message": "Got post", "description": post.description, "image_id": post.image_id})
+        return({"code": 1000, "message": "Got post", "user": post.user, "description": post.description, "image_id": post.image_id})
 
 
 async def post_rpc_server():

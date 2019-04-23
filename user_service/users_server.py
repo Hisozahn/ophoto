@@ -21,7 +21,9 @@ class UserServer(RPCServer):
         self.scheme = [
             {'op': 'user.create', 'handler': self.user_create, 'args': ['_id', 'user']},
             {'op': 'user.find', 'handler': self.user_find, 'args': ['user', 'search_type']},
-                      ]
+            {'op': 'user.get', 'handler': self.user_get, 'args': ['name']},
+            {'op': 'user.set_image', 'handler': self.user_set_image, 'args': ['name', 'image_id']},
+        ]
 
 
     async def user_create(self, _id, user):
@@ -39,7 +41,18 @@ class UserServer(RPCServer):
         print(user_names)
         return({"code": 1000, "message": "Query succeeded", "users": user_names})
 
+    async def user_get(self, name):
+        user = await self.db.get_user(name)
+        if user is None:
+            return({"code": 999, "message": "No such user"})
+        return({"code": 1000, "message": "Got user", "bio": user.bio, "follows": user.follows, "image_id": user.image_id})
 
+    async def user_set_image(self, name, image_id):
+        user = await self.db.get_user(name)
+        if user is None:
+            return({"code": 999, "message": "No such user"})
+        await self.db.update_user_info(name, image_id, user.bio)
+        return({"code": 1000, "message": "User updated"})
 
 async def user_rpc_server():
     db = UserDatabase(options.db_host, options.db_port, options.db_database)

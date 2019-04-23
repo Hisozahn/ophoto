@@ -34,7 +34,10 @@ class Application(tornado.web.Application):
             (r"/auth/logout", AuthLogoutHandler),
             (r"/post", PostCreateHandler),
             (r"/get_posts", GetPostsHandler),
+            (r"/get_image", GetImageHandler),
             (r"/get_post", GetPostHandler),
+            (r"/get_user", GetUserHandler),
+            (r"/set_user_image", SetUserImageHandler),
         ]
         settings = dict(
             xsrf_cookies=False,
@@ -123,6 +126,18 @@ class GetPostsHandler(BaseHandler):
         response = await self.application.rpc_client.call('post', {'op': 'post.find', 'users': response['users']})
         self.write(response)
 
+class GetImageHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        image_response = await self.application.rpc_client.call('image', {'op': 'image.get', 'image_id': self.args['image_id']})
+        if image_response['code'] != 1000:
+            self.write(image_response)
+            return
+        self.write( {"code": 1000, "message": "Got image", "image": image_response["image"]})
+
 class GetPostHandler(BaseHandler):
     async def post(self):
         response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
@@ -137,7 +152,33 @@ class GetPostHandler(BaseHandler):
         if image_response['code'] != 1000:
             self.write(image_response)
             return
-        self.write( {"code": 1000, "message": "Got post", "description": post_response["description"], "image": image_response["image"]})
+        self.write( {"code": 1000, "message": "Got post", "user": post_response["user"], "description": post_response["description"], "image": image_response["image"]})
+
+class GetUserHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        response = await self.application.rpc_client.call('user', {'op': 'user.get', 'name': self.args["name"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        self.write( {"code": 1000, "message": "Got user", "bio": response["bio"], "follows": response["follows"], "image_id": response["image_id"]})
+
+class SetUserImageHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        user = response['user']
+        response = await self.application.rpc_client.call('image', {'op': 'image.create', 'image': self.args["image"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        response = await self.application.rpc_client.call('user', {'op': 'user.set_image', 'name': user, "image_id": response["image_id"]})
+        self.write(response)
 
 async def main():
     tornado.options.parse_command_line()
