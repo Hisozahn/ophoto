@@ -34,10 +34,14 @@ class Application(tornado.web.Application):
             (r"/auth/logout", AuthLogoutHandler),
             (r"/post", PostCreateHandler),
             (r"/get_posts", GetPostsHandler),
+            (r"/get_posts_of", GetPostsOfHandler),
             (r"/get_image", GetImageHandler),
             (r"/get_post", GetPostHandler),
             (r"/get_user", GetUserHandler),
             (r"/set_user_image", SetUserImageHandler),
+            (r"/set_user_bio", SetUserBioHandler),
+            (r"/user_follow", UserFollowHandler),
+            (r"/find_users", UserFindHandler),
         ]
         settings = dict(
             xsrf_cookies=False,
@@ -111,6 +115,16 @@ class PostCreateHandler(BaseHandler):
         response = await self.application.rpc_client.call('post', {'op': 'post.create', 'user': user, 'image_id': response['image_id'], 'description': self.args["description"]})
         self.write(response)
 
+class GetPostsOfHandler(BaseHandler):
+    async def post(self):
+        search_type = self.args["search_type"]
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        response = await self.application.rpc_client.call('post', {'op': 'post.find', 'users': [self.args["user"]]})
+        self.write(response)
+
 class GetPostsHandler(BaseHandler):
     async def post(self):
         search_type = self.args["search_type"]
@@ -178,6 +192,36 @@ class SetUserImageHandler(BaseHandler):
             self.write(response)
             return
         response = await self.application.rpc_client.call('user', {'op': 'user.set_image', 'name': user, "image_id": response["image_id"]})
+        self.write(response)
+
+class SetUserBioHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        user = response['user']
+        response = await self.application.rpc_client.call('user', {'op': 'user.set_bio', 'name': user, "bio": self.args["bio"]})
+        self.write(response)
+
+class UserFollowHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        user = response['user']
+        response = await self.application.rpc_client.call('user', {'op': 'user.follow', 'name': user, "follow_name": self.args["follow_name"], "value": self.args["value"]})
+        self.write(response)
+
+class UserFindHandler(BaseHandler):
+    async def post(self):
+        response = await self.application.rpc_client.call('auth', {'op': 'auth.check', 'token': self.args["token"]})
+        if response['code'] != 1000:
+            self.write(response)
+            return
+        user = response['user']
+        response = await self.application.rpc_client.call('user', {'op': 'user.find_people', 'name': user, "query": self.args["query"], "search_type": self.args["search_type"]})
         self.write(response)
 
 async def main():

@@ -21,8 +21,11 @@ class UserServer(RPCServer):
         self.scheme = [
             {'op': 'user.create', 'handler': self.user_create, 'args': ['_id', 'user']},
             {'op': 'user.find', 'handler': self.user_find, 'args': ['user', 'search_type']},
+            {'op': 'user.find_people', 'handler': self.find_people, 'args': ['user', 'query', 'search_type']},
             {'op': 'user.get', 'handler': self.user_get, 'args': ['name']},
             {'op': 'user.set_image', 'handler': self.user_set_image, 'args': ['name', 'image_id']},
+            {'op': 'user.set_bio', 'handler': self.user_set_bio, 'args': ['name', 'bio']},
+            {'op': 'user.follow', 'handler': self.user_follow, 'args': ['name', 'follow_name', 'value']},
         ]
 
 
@@ -41,6 +44,14 @@ class UserServer(RPCServer):
         print(user_names)
         return({"code": 1000, "message": "Query succeeded", "users": user_names})
 
+    async def find_people(self, user, query, search_type):
+        users = await self.db.find_people(user, query, search_type)
+        user_names = []
+        for user in users:
+            user_names.append(user["name"])
+        print(user_names)
+        return({"code": 1000, "message": "Query succeeded", "users": user_names})
+
     async def user_get(self, name):
         user = await self.db.get_user(name)
         if user is None:
@@ -52,6 +63,21 @@ class UserServer(RPCServer):
         if user is None:
             return({"code": 999, "message": "No such user"})
         await self.db.update_user_info(name, image_id, user.bio)
+        return({"code": 1000, "message": "User updated"})
+
+    async def user_set_bio(self, name, bio):
+        user = await self.db.get_user(name)
+        if user is None:
+            return({"code": 999, "message": "No such user"})
+        await self.db.update_user_info(name, user.image_id, bio)
+        return({"code": 1000, "message": "User updated"})
+
+    async def user_follow(self, name, follow_name, value):
+        user = await self.db.get_user(name)
+        follow_user = await self.db.get_user(follow_name)
+        if user is None or follow_user is None:
+            return({"code": 999, "message": "No such user"})
+        await self.db.user_set_follow(name, follow_name, value)
         return({"code": 1000, "message": "User updated"})
 
 async def user_rpc_server():

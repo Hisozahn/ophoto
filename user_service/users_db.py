@@ -38,6 +38,13 @@ class UserDatabase(Database):
     async def update_user_info(self, name, image_id, bio):
         result = await self.db.users.update_one({'name': name}, {'$set': {"image_id": image_id, "bio": bio}})
 
+    async def user_set_follow(self, name, follow_name, value):
+        if value == '1':
+            result = await self.db.users.update_one({'name': name}, { '$addToSet': { 'follows': [ follow_name ] } })
+        else
+            result = await self.db.users.update_one({'name': name}, { '$pull': { 'follows': [ follow_name ] } })
+            
+
     async def find_related(self, user, search_type):
         user_obj = await self.get_user(user)
         if user_obj is None:
