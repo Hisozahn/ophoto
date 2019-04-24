@@ -52,4 +52,5 @@ class RPCClient(object):
         self.waiter.clear()
 
 #        await self.protocol.close()
+
         return json.loads(self.response)

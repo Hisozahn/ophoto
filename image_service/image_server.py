@@ -28,7 +28,10 @@ class ImageServer(RPCServer):
         image = await self.db.get_image(ObjectId(image_id))
         if image is None:
             return({"code": 999, "message": "No such image"})
-        return({"code": 1000, "message": "Got image", "image": image.data})
+        data = ''
+        if image.data is not None:
+            data = image.data
+        return({"code": 1000, "message": "Got image", "image": data})
 
 
 

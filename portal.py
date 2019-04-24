@@ -178,7 +178,14 @@ class GetUserHandler(BaseHandler):
         if response['code'] != 1000:
             self.write(response)
             return
-        self.write( {"code": 1000, "message": "Got user", "bio": response["bio"], "follows": response["follows"], "image_id": response["image_id"]})
+        image = ''
+        if response["image_id"]:
+            image_response = await self.application.rpc_client.call('image', {'op': 'image.get', 'image_id': response['image_id']})
+            if image_response['code'] != 1000:
+                self.write(image_response)
+                return
+            image = image_response["image"]
+        self.write( {"code": 1000, "message": "Got user", "bio": response["bio"], "follows": response["follows"], "image": image})
 
 class SetUserImageHandler(BaseHandler):
     async def post(self):

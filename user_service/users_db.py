@@ -41,7 +41,7 @@ class UserDatabase(Database):
     async def user_set_follow(self, name, follow_name, value):
         if value == '1':
             result = await self.db.users.update_one({'name': name}, { '$addToSet': { 'follows': [ follow_name ] } })
-        else
+        else:
             result = await self.db.users.update_one({'name': name}, { '$pull': { 'follows': [ follow_name ] } })
             
 

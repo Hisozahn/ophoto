@@ -4,17 +4,17 @@ import asyncio
 import json
 
 async def route(scheme, msg):
-#    print(str(msg)[:100])
     if 'op' not in msg:
         return({"code": 999, "message": "Operation is not present in the message %s" % msg})
 
     for operation in scheme:
-        print(operation)
         if operation['op'] == msg['op']:
             op = operation
 
     if op is None:
         return({"code": 999, "message": "Operation is not present in the scheme"})
+
+    print(op)
 
     for key in op['args']:
         if key not in msg:
