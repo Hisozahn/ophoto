@@ -40,9 +40,9 @@ class UserDatabase(Database):
 
     async def user_set_follow(self, name, follow_name, value):
         if value == '1':
-            result = await self.db.users.update_one({'name': name}, { '$addToSet': { 'follows': [ follow_name ] } })
+            result = await self.db.users.update_one({'name': name}, { '$addToSet': { 'follows': follow_name } })
         else:
-            result = await self.db.users.update_one({'name': name}, { '$pull': { 'follows': [ follow_name ] } })
+            result = await self.db.users.update_one({'name': name}, { '$pull': { 'follows': follow_name } })
             
 
     async def find_related(self, user, search_type):
@@ -71,7 +71,7 @@ class UserDatabase(Database):
             match["$and"].append({'follows': user_obj.name})
         elif SearchType[search_type] != 1:
             raise Exception('Invalid search type')
-        match["$and"].append({"name": '/{0}/'.format(query)})
+        match["$and"].append({"name": {"$regex": query}})
         cursor = self.db.users.find(match)
         people = await cursor.to_list(None)
         return people

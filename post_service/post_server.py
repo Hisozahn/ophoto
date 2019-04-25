@@ -23,6 +23,8 @@ class PostServer(RPCServer):
             {'op': 'post.create', 'handler': self.post_create, 'args': ['user', 'image_id', 'description']},
             {'op': 'post.find', 'handler': self.post_find, 'args': ['users']},
             {'op': 'post.get', 'handler': self.post_get, 'args': ['post_id']},
+            {'op': 'post.get_likes', 'handler': self.post_get_likes, 'args': ['post_id']},
+            {'op': 'post.like', 'handler': self.post_like, 'args': ['post_id', 'user', 'value']},
         ]
 
 
@@ -38,7 +40,7 @@ class PostServer(RPCServer):
         post_ids = []
         for post in posts:
             post_ids.append(str(post["_id"]))
-        print(post_ids)
+        print("users: ", users, "posts_id: ", post_ids)
         return({"code": 1000, "message": "Query succeeded", "posts": post_ids})
 
     async def post_get(self, post_id):
@@ -46,6 +48,19 @@ class PostServer(RPCServer):
         if post is None:
             return({"code": 999, "message": "No such post"})
         return({"code": 1000, "message": "Got post", "user": post.user, "description": post.description, "image_id": post.image_id})
+
+    async def post_get_likes(self, post_id):
+        post = await self.db.get_post(ObjectId(post_id))
+        if post is None:
+            return({"code": 999, "message": "No such post"})
+        return({"code": 1000, "message": "Got post likes", "likes": post.likes})
+
+    async def post_like(self, post_id, user, value):
+        post = await self.db.get_post(ObjectId(post_id))
+        if post is None:
+            return({"code": 999, "message": "No such post"})
+        await self.db.post_set_like(ObjectId(post_id), user, value)
+        return({"code": 1000, "message": "Like succeeded"})
 
 
 async def post_rpc_server():

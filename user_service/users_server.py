@@ -23,6 +23,7 @@ class UserServer(RPCServer):
             {'op': 'user.find', 'handler': self.user_find, 'args': ['user', 'search_type']},
             {'op': 'user.find_people', 'handler': self.find_people, 'args': ['user', 'query', 'search_type']},
             {'op': 'user.get', 'handler': self.user_get, 'args': ['name']},
+            {'op': 'user.get_follow', 'handler': self.user_get_follow, 'args': ['name', 'follow']},
             {'op': 'user.set_image', 'handler': self.user_set_image, 'args': ['name', 'image_id']},
             {'op': 'user.set_bio', 'handler': self.user_set_bio, 'args': ['name', 'bio']},
             {'op': 'user.follow', 'handler': self.user_follow, 'args': ['name', 'follow_name', 'value']},
@@ -57,6 +58,15 @@ class UserServer(RPCServer):
         if user is None:
             return({"code": 999, "message": "No such user"})
         return({"code": 1000, "message": "Got user", "bio": user.bio, "follows": user.follows, "image_id": user.image_id})
+
+    async def user_get_follow(self, name, follow):
+        user = await self.db.get_user(name)
+        if user is None:
+            return({"code": 999, "message": "No such user"})
+        follows = 0
+        if follow in user.follows:
+            follows = 1
+        return({"code": 1000, "message": "Got follow", "follows": follows})
 
     async def user_set_image(self, name, image_id):
         user = await self.db.get_user(name)
