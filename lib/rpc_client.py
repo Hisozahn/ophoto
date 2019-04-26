@@ -49,7 +49,11 @@ class RPCClient(object):
         )
         event = asyncio.Event();
         self.events[corr_id] = {'event': event, 'response': None}
-        await event.wait()
+        try:
+            await asyncio.wait_for(event.wait(), 2.0)
+        except asyncio.TimeoutError:
+            del(self.events[corr_id])
+            return {"code": 999, "message": "RPC timeout error"}
         response = self.events[corr_id]['response']
         del(self.events[corr_id])
 

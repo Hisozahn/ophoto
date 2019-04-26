@@ -187,7 +187,7 @@ class GetPostHandler(BaseHandler):
             return
         image_response = await self.application.rpc_client.call('image', {'op': 'image.get', 'image_id': post_response['image_id']})
         if image_response['code'] != 1000:
-            self.write(image_response)
+            self.write( {"code": 1000, "message": "Got post", "user": post_response["user"], "description": post_response["description"], "image": ""})
             return
         self.write( {"code": 1000, "message": "Got post", "user": post_response["user"], "description": post_response["description"], "image": image_response["image"]})
 
